@@ -24,12 +24,12 @@ function money(amount, currency) {
   return currency === "USD" ? `${grouped},${digits.slice(-2)} $` : `${grouped} ₸`;
 }
 
-function parseAmount(value, currency) {
+function parseAmount(value, currency, allowZero = false) {
   const raw = value.trim().replace(/[ \u00a0\u202f]/g, "");
   if (!(currency === "USD" ? /^\d+([.,]\d{1,2})?$/ : /^\d+$/).test(raw)) return null;
   const [whole, fraction = ""] = raw.split(/[.,]/);
   const amount = Number(currency === "USD" ? whole + fraction.padEnd(2, "0") : whole);
-  return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
+  return Number.isSafeInteger(amount) && (allowZero ? amount >= 0 : amount > 0) ? amount : null;
 }
 
 function totals(expenses) {
@@ -87,17 +87,20 @@ function load() {
     const keys = new Set();
     const monthTotals = new Map();
     for (const budget of budgets) {
+      const currency = budget?.currency === undefined ? "KZT" : budget.currency;
       if (!budget || typeof budget.month !== "string" || !validDate(`${budget.month}-01`) ||
-        !parsed.categories.includes(budget.category) || !Number.isSafeInteger(budget.amount) || budget.amount < 0) {
+        !["KZT", "USD"].includes(currency) || !parsed.categories.includes(budget.category) ||
+        !Number.isSafeInteger(budget.amount) || budget.amount < 0) {
         throw new Error("Invalid budget");
       }
-      const key = JSON.stringify([budget.month, budget.category]);
-      const total = (monthTotals.get(budget.month) || 0) + budget.amount;
+      const key = JSON.stringify([budget.month, budget.category, currency]);
+      const monthKey = JSON.stringify([budget.month, currency]);
+      const total = (monthTotals.get(monthKey) || 0) + budget.amount;
       if (keys.has(key) || !Number.isSafeInteger(total)) throw new Error("Invalid budget total");
       keys.add(key);
-      monthTotals.set(budget.month, total);
+      monthTotals.set(monthKey, total);
     }
-    parsed.budgets = budgets;
+    parsed.budgets = budgets.map((budget) => ({ ...budget, currency: budget.currency === undefined ? "KZT" : budget.currency }));
     data = parsed;
   } catch {
     storageReadable = false;
@@ -107,23 +110,25 @@ function load() {
   }
 }
 
-function budgetWarning(limit, spent) {
+function budgetWarning(limit, spent, currency) {
   if (limit === undefined) return "";
-  return spent > limit ? `Перерасход: ${money(spent - limit, "KZT")}`
+  return spent > limit ? `Перерасход: ${money(spent - limit, currency)}`
     : spent === limit ? "Лимит исчерпан" : "";
 }
 
 function renderBudget() {
   const month = localDate().slice(0, 7);
+  const currency = byId("budget-currency").value;
+  const symbol = currency === "USD" ? "$" : "₸";
   byId("budget-month").textContent = new Date().toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
-  const budgets = (data.budgets || []).filter((budget) => budget.month === month);
-  const expenses = data.expenses.filter((expense) => expense.currency === "KZT" && expense.date.slice(0, 7) === month);
+  const budgets = (data.budgets || []).filter((budget) => budget.month === month && budget.currency === currency);
+  const expenses = data.expenses.filter((expense) => expense.currency === currency && expense.date.slice(0, 7) === month);
   const total = budgets.reduce((sum, budget) => sum + budget.amount, 0);
-  const spent = totals(expenses).KZT;
-  byId("budget-limit").textContent = budgets.length ? money(total, "KZT") : "Не задан";
-  byId("budget-spent").textContent = money(spent, "KZT");
-  byId("budget-left").textContent = budgets.length ? money(total - spent, "KZT") : "—";
-  byId("budget-warning").textContent = budgetWarning(budgets.length ? total : undefined, spent);
+  const spent = totals(expenses)[currency];
+  byId("budget-limit").textContent = budgets.length ? money(total, currency) : "Не задан";
+  byId("budget-spent").textContent = money(spent, currency);
+  byId("budget-left").textContent = budgets.length ? money(total - spent, currency) : "—";
+  byId("budget-warning").textContent = budgetWarning(budgets.length ? total : undefined, spent, currency);
   byId("budget-warning").hidden = !byId("budget-warning").textContent;
   byId("budget-unset").hidden = data.categories.every((category) => budgets.some((budget) => budget.category === category));
   const container = byId("budget-categories");
@@ -132,25 +137,29 @@ function renderBudget() {
     container.replaceChildren();
     container.dataset.month = month;
   }
+  // Retain each currency's editors, including drafts and errors, while switching.
+  [...container.children].forEach((row) => { row.hidden = row.dataset.currency !== currency; });
   data.categories.forEach((category, index) => {
-    let row = [...container.children].find((item) => item.dataset.category === category);
+    let row = [...container.children].find((item) => item.dataset.category === category && item.dataset.currency === currency);
     const limit = budgets.find((budget) => budget.category === category)?.amount;
     if (!row) {
       row = document.createElement("article");
       row.className = "budget-category";
       row.dataset.category = category;
+      row.dataset.currency = currency;
+      const inputId = `budget-input-${index}-${currency}`;
       // Only fixed markup goes through innerHTML; category names are always text.
       row.innerHTML = `<h3></h3>
         <dl class="budget-values"><div><dt>Лимит</dt><dd class="limit"></dd></div><div><dt>Потрачено</dt><dd class="spent"></dd></div><div><dt>Осталось</dt><dd class="left"></dd></div></dl>
         <p class="budget-warning" role="status" hidden></p>
-        <form class="budget-editor" novalidate><div class="field"><label for="budget-input-${index}"></label>
-        <input id="budget-input-${index}" type="text" inputmode="numeric" placeholder="10 000" aria-describedby="budget-input-${index}-error" required>
-        <p id="budget-input-${index}-error" class="error" hidden></p></div>
+        <form class="budget-editor" novalidate><div class="field"><label for="${inputId}"></label>
+        <input id="${inputId}" type="text" inputmode="${currency === "USD" ? "decimal" : "numeric"}" placeholder="${currency === "USD" ? "100,00" : "10 000"}" aria-describedby="${inputId}-error" required>
+        <p id="${inputId}-error" class="error" hidden></p></div>
         <button type="submit">Сохранить</button><button type="button" class="secondary">Убрать лимит</button></form>`;
       row.querySelector("h3").textContent = category;
-      row.querySelector("label").textContent = `Лимит: ${category}, ₸`;
+      row.querySelector("label").textContent = `Лимит: ${category}, ${symbol}`;
       const input = row.querySelector("input");
-      input.value = limit === undefined ? "" : money(limit, "KZT").replace(" ₸", "");
+      input.value = limit === undefined ? "" : money(limit, currency).replace(` ${symbol}`, "");
       const change = (remove) => {
         byId("budget-status").textContent = "";
         if (month !== localDate().slice(0, 7)) {
@@ -158,29 +167,30 @@ function renderBudget() {
           byId("budget-status").textContent = "Начался новый месяц. Укажите лимит заново.";
           return;
         }
-        const raw = input.value.trim().replace(/[ \u00a0\u202f]/g, "");
-        const amount = /^\d+$/.test(raw) && Number.isSafeInteger(Number(raw)) ? Number(raw) : null;
-        const others = (data.budgets || []).filter((budget) => !(budget.month === month && budget.category === category));
-        const otherTotal = others.filter((budget) => budget.month === month).reduce((sum, budget) => sum + budget.amount, 0);
-        const error = remove ? "" : amount === null ? "Введите лимит в целых тенге: 0 или больше."
+        const amount = parseAmount(input.value, currency, true);
+        const others = (data.budgets || []).filter((budget) => !(budget.month === month && budget.category === category && budget.currency === currency));
+        const otherTotal = others.filter((budget) => budget.month === month && budget.currency === currency).reduce((sum, budget) => sum + budget.amount, 0);
+        const error = remove ? "" : amount === null ? currency === "USD"
+          ? "Введите лимит в долларах: 0 или больше, не более двух знаков после запятой."
+          : "Введите лимит в целых тенге: 0 или больше."
           : !Number.isSafeInteger(otherTotal + amount) ? "Общий бюджет слишком велик для точного расчёта." : "";
         fieldError(input.id, error);
         if (error) { input.focus(); return; }
-        const next = remove ? others : [...others, { month, category, amount }];
+        const next = remove ? others : [...others, { month, category, currency, amount }];
         if (!save({ ...data, budgets: next })) return;
-        input.value = remove ? "" : money(amount, "KZT").replace(" ₸", "");
+        input.value = remove ? "" : money(amount, currency).replace(` ${symbol}`, "");
         renderBudget();
-        byId("budget-status").textContent = remove ? `Лимит убран: ${category}` : `Лимит сохранён: ${category}`;
+        byId("budget-status").textContent = remove ? `Лимит убран: ${category}, ${symbol}` : `Лимит сохранён: ${category}, ${symbol}`;
       };
       row.querySelector("form").addEventListener("submit", (event) => { event.preventDefault(); change(false); });
       row.querySelector('button[type="button"]').addEventListener("click", () => change(true));
       container.append(row);
     }
-    const categorySpent = totals(expenses.filter((expense) => expense.category === category)).KZT;
-    row.querySelector(".limit").textContent = limit === undefined ? "Не задан" : money(limit, "KZT");
-    row.querySelector(".spent").textContent = money(categorySpent, "KZT");
-    row.querySelector(".left").textContent = limit === undefined ? "—" : money(limit - categorySpent, "KZT");
-    row.querySelector(".budget-warning").textContent = budgetWarning(limit, categorySpent);
+    const categorySpent = totals(expenses.filter((expense) => expense.category === category))[currency];
+    row.querySelector(".limit").textContent = limit === undefined ? "Не задан" : money(limit, currency);
+    row.querySelector(".spent").textContent = money(categorySpent, currency);
+    row.querySelector(".left").textContent = limit === undefined ? "—" : money(limit - categorySpent, currency);
+    row.querySelector(".budget-warning").textContent = budgetWarning(limit, categorySpent, currency);
     row.querySelector(".budget-warning").hidden = !row.querySelector(".budget-warning").textContent;
     row.querySelectorAll("input, button").forEach((field) => { field.disabled = !storageReadable; });
     row.querySelector('button[type="button"]').disabled = !storageReadable || limit === undefined;
@@ -301,6 +311,10 @@ byId("new-category").addEventListener("keydown", (event) => {
 });
 
 byId("period-from").addEventListener("change", render);
+byId("budget-currency").addEventListener("change", () => {
+  byId("budget-status").textContent = "";
+  renderBudget();
+});
 byId("period-to").addEventListener("change", render);
 byId("reset-period").addEventListener("click", () => {
   byId("period-from").value = "";

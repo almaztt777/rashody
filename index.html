@@ -29,7 +29,14 @@
     <section class="budget-section" aria-labelledby="budget-heading">
       <h2 id="budget-heading">Бюджет месяца</h2>
       <p id="budget-month" class="budget-note"></p>
-      <p class="budget-note">Бюджет в ₸. Траты в $ не учитываются</p>
+      <div class="field budget-currency-field">
+        <label for="budget-currency">Валюта бюджета</label>
+        <select id="budget-currency" aria-describedby="budget-currency-note">
+          <option value="KZT" aria-label="Тенге">₸</option>
+          <option value="USD" aria-label="Доллары США">$</option>
+        </select>
+      </div>
+      <p id="budget-currency-note" class="budget-note">Лимиты и расходы в ₸ и $ считаются отдельно.</p>
       <dl class="budget-totals" aria-live="polite">
         <div><dt>Общий бюджет</dt><dd id="budget-limit">Не задан</dd></div>
         <div><dt>Потрачено</dt><dd id="budget-spent">0 ₸</dd></div>
