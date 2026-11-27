@@ -6,6 +6,8 @@ const byId = (id) => document.getElementById(id);
 const expenseForm = byId("expense-form");
 let data = { categories: [...initialCategories], expenses: [] };
 let storageReadable = true;
+let reportText = "";
+let reportCopyAttempt = 0;
 
 function localDate(date = new Date()) {
   return `${String(date.getFullYear()).padStart(4, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -204,7 +206,15 @@ function renderReport() {
   byId("report-error").hidden = storageReadable;
   byId("report-content").hidden = !storageReadable;
   byId("report-currency").disabled = !storageReadable;
-  if (!storageReadable) return;
+  byId("copy-report").disabled = !storageReadable;
+  if (!storageReadable) {
+    reportText = "";
+    reportCopyAttempt++;
+    byId("report-text").value = "";
+    byId("report-copy-status").textContent = "";
+    byId("report-manual-copy").hidden = true;
+    return;
+  }
   const currency = byId("report-currency").value;
   const expenses = data.expenses.filter((expense) => expense.currency === currency && expense.date.slice(0, 7) === month);
   const total = totals(expenses)[currency];
@@ -242,6 +252,43 @@ function renderReport() {
   byId("report-previous-empty").hidden = previousExpenses.length > 0;
   byId("report-difference").textContent = difference > 0 ? `Больше на ${money(difference, currency)}`
     : difference < 0 ? `Меньше на ${money(-difference, currency)}` : "Без изменений";
+  const text = [
+    `Отчёт за ${byId("report-month").textContent}`,
+    "Все записи месяца",
+    `Итого: ${money(total, currency)}`,
+    ...(topCategories.length ? ["Самые затратные категории:",
+      ...topCategories.map(([category, amount], index) => `${index + 1}. ${category}: ${money(amount, currency)}`)]
+      : ["В этом месяце трат нет"]),
+    `${byId("report-previous-month").textContent}: ${money(previousTotal, currency)}`,
+    ...(previousExpenses.length ? [] : ["В прошлом месяце трат нет"]),
+    byId("report-difference").textContent,
+    byId("report-comparison-note").textContent
+  ].join("\n");
+  if (text !== reportText) {
+    reportText = text;
+    reportCopyAttempt++;
+    byId("report-copy-status").textContent = "";
+  }
+  byId("report-text").value = text;
+}
+
+async function copyReport() {
+  renderReport();
+  if (!storageReadable) return;
+  const text = reportText;
+  const attempt = ++reportCopyAttempt;
+  byId("report-copy-status").textContent = "";
+  try {
+    await navigator.clipboard.writeText(text);
+    if (attempt !== reportCopyAttempt) return;
+    byId("report-manual-copy").hidden = true;
+    byId("report-copy-status").textContent = "Отчёт скопирован";
+  } catch {
+    if (attempt !== reportCopyAttempt) return;
+    byId("report-manual-copy").hidden = false;
+    byId("report-text").focus();
+    byId("report-text").select();
+  }
 }
 
 function renderCategories(selected = byId("category").value) {
@@ -361,6 +408,7 @@ byId("new-category").addEventListener("keydown", (event) => {
 
 byId("period-from").addEventListener("change", render);
 byId("report-currency").addEventListener("change", renderReport);
+byId("copy-report").addEventListener("click", copyReport);
 byId("budget-currency").addEventListener("change", () => {
   byId("budget-status").textContent = "";
   renderBudget();

@@ -154,7 +154,14 @@
             <p class="report-note"><span id="report-previous-month"></span>: <output id="report-previous-total">0 ₸</output></p>
             <p id="report-previous-empty" class="report-note">В прошлом месяце трат нет</p>
             <p id="report-difference" class="report-difference">Без изменений</p>
-            <p class="report-note">Сравнение всех записей двух календарных месяцев; текущий месяц ещё может быть не завершён.</p>
+            <p id="report-comparison-note" class="report-note">Сравнение всех записей двух календарных месяцев; текущий месяц ещё может быть не завершён.</p>
+          </div>
+          <button id="copy-report" type="button">Скопировать отчёт</button>
+          <p id="report-copy-status" role="status"></p>
+          <div id="report-manual-copy" hidden>
+            <p id="report-copy-hint" class="report-note">Не удалось скопировать автоматически. Выделите текст и скопируйте вручную</p>
+            <label for="report-text">Текст отчёта для копирования</label>
+            <textarea id="report-text" rows="10" readonly aria-describedby="report-copy-hint"></textarea>
           </div>
         </div>
       </div>

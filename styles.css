@@ -95,6 +95,9 @@ footer { border-top: 1px solid #dcd9dd; padding-top: 18px; margin-top: 24px; }
 .report-comparison h3 { margin: 0; font-size: 16px; font-weight: 650; }
 #report-previous-total { font-weight: 650; font-variant-numeric: tabular-nums; }
 .report-difference { margin-top: 12px; color: #7c203a; font-weight: 650; font-variant-numeric: tabular-nums; }
+#copy-report { margin-top: 20px; max-width: 100%; }
+#report-copy-status { margin-top: 12px; color: #276341; font-size: 14px; }
+#report-manual-copy label { margin-top: 16px; }
 
 @media (max-width: 600px) {
   main { padding: 24px 16px; }

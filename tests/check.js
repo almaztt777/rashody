@@ -1,5 +1,5 @@
 // Выполнять в консоли index.html только в пустом тестовом профиле браузера.
-(() => {
+(async () => {
   if (localStorage.getItem("rashody") !== null) throw new Error("Нужен пустой тестовый профиль: сохранённые данные не изменены.");
   const passed = [];
   function check(condition, name) {
@@ -251,6 +251,69 @@
     reset();
   }
 
+  const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  const copiedReports = [];
+  try {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
+      writeText: async (text) => { copiedReports.push(text); }
+    } });
+    add("5000", "KZT", localDate(), "Еда", "Личный комментарий");
+    add("2500", "KZT", localDate(), "Транспорт"); add("12000", "KZT", localDate(), "Дом");
+    add("15000", "KZT", localDate(previousMonth));
+    check(copiedReports.length === 0, "Отчёт не копируется без нажатия");
+    byId("copy-report").click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const expectedReport = [
+      `Отчёт за ${byId("report-month").textContent}`, "Все записи месяца", "Итого: 19 500 ₸",
+      "Самые затратные категории:", "1. Дом: 12 000 ₸", "2. Еда: 5 000 ₸", "3. Транспорт: 2 500 ₸",
+      `${byId("report-previous-month").textContent}: 15 000 ₸`, "Больше на 4 500 ₸",
+      "Сравнение всех записей двух календарных месяцев; текущий месяц ещё может быть не завершён."
+    ].join("\n");
+    check(copiedReports[0] === expectedReport && !copiedReports[0].includes("Личный комментарий"),
+      "Кнопка копирует полный отчёт с переносами строк без комментариев");
+    check(byId("report-copy-status").textContent === "Отчёт скопирован" && byId("report-manual-copy").hidden,
+      "После успешного копирования показано подтверждение");
+    add("500");
+    check(byId("report-copy-status").textContent === "", "Изменение отчёта убирает прежнее подтверждение");
+    await copyReport();
+    check(copiedReports.at(-1).includes("Итого: 20 000 ₸") && copiedReports.at(-1).includes("2. Еда: 5 500 ₸"),
+      "Повторное копирование использует обновлённые суммы");
+    navigator.clipboard.writeText = async () => { throw new Error("Clipboard denied"); };
+    await copyReport();
+    check(!byId("report-manual-copy").hidden && byId("report-copy-status").textContent === "" &&
+      byId("report-text").value === copiedReports.at(-1), "Отказ буфера показывает тот же текст без ложного успеха");
+    check(document.activeElement === byId("report-text") && byId("report-text").selectionStart === 0 &&
+      byId("report-text").selectionEnd === byId("report-text").value.length && byId("report-text").readOnly,
+      "Текст ручного копирования выделен и защищён от случайного изменения");
+    byId("report-currency").value = "USD"; byId("report-currency").dispatchEvent(new Event("change"));
+    check(!byId("report-manual-copy").hidden && byId("report-text").value.includes("Итого: 0,00 $") &&
+      byId("report-text").value.includes("В этом месяце трат нет") && byId("report-text").value.includes("В прошлом месяце трат нет") &&
+      !byId("report-text").value.includes("₸"), "Открытый ручной текст обновляется при смене валюты и пустых месяцах");
+    add("12.50", "USD"); add("0.10", "USD"); add("20", "USD", localDate(), "Транспорт");
+    add("30", "USD", localDate(previousMonth));
+    check(byId("report-text").value.includes("Итого: 32,60 $") && byId("report-text").value.includes("Больше на 2,60 $") &&
+      byId("report-text").value.includes("2. Еда: 12,60 $"), "Ручной текст обновляется после добавления долларовых трат");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+    await copyReport();
+    check(!byId("report-manual-copy").hidden && byId("report-copy-status").textContent === "", "При отсутствии API буфера доступно ручное копирование");
+    let finishCopy;
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
+      writeText: () => new Promise((resolve) => { finishCopy = resolve; })
+    } });
+    const pendingCopy = copyReport();
+    byId("report-currency").value = "KZT"; byId("report-currency").dispatchEvent(new Event("change"));
+    finishCopy(); await pendingCopy;
+    check(byId("report-copy-status").textContent === "" && !byId("report-manual-copy").hidden &&
+      byId("report-text").value.includes("Итого: 20 000 ₸"), "Поздний ответ буфера не подтверждает уже изменённый отчёт");
+    navigator.clipboard.writeText = async (text) => { copiedReports.push(text); };
+    await copyReport();
+    check(byId("report-manual-copy").hidden && byId("report-copy-status").textContent === "Отчёт скопирован",
+      "Успешная повторная попытка скрывает ручное поле");
+  } finally {
+    if (clipboardDescriptor) Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
+    else delete navigator.clipboard;
+  }
+
   const legacy = JSON.stringify({ categories: [...initialCategories], expenses: [{ amount: 5000, category: "Еда", date: localDate(), comment: "Старая запись" }] });
   localStorage.setItem("rashody", legacy);
   load();
@@ -263,6 +326,8 @@
   render();
   check(!byId("report-error").hidden && byId("report-content").hidden && byId("report-currency").disabled,
     "При повреждённых данных отчёт скрыт и показана ошибка");
+  check(byId("copy-report").disabled && byId("report-text").value === "" && byId("report-copy-status").textContent === "",
+    "При ошибке чтения копирование отключено и прежний текст очищен");
   localStorage.setItem("rashody", persistenceFixture);
   expenseForm.querySelectorAll("input, select, textarea, button").forEach((field) => { field.disabled = false; });
   byId("storage-error").hidden = true;
