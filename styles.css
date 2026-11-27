@@ -79,6 +79,12 @@ footer { border-top: 1px solid #dcd9dd; padding-top: 18px; margin-top: 24px; }
 #budget-status { color: #276341; margin-top: 12px; font-size: 14px; }
 [hidden] { display: none !important; }
 
+.report-section { margin-top: 24px; padding: 28px; background: white; border: 1px solid #dcd9dd; border-radius: 12px; }
+.report-note { margin-top: 8px; color: #666168; font-size: 14px; line-height: 1.5; }
+.report-currency-field { max-width: 180px; margin-top: 16px; }
+.report-summary { margin-top: 16px; font-size: 20px; overflow-wrap: anywhere; }
+#report-total { color: #7c203a; font-weight: 700; font-variant-numeric: tabular-nums; }
+
 @media (max-width: 600px) {
   main { padding: 24px 16px; }
   h1 { font-size: 34px; }
@@ -88,6 +94,7 @@ footer { border-top: 1px solid #dcd9dd; padding-top: 18px; margin-top: 24px; }
   .totals { text-align: left; margin-top: 16px; font-size: 34px; }
   .entry-section, .history-section { padding: 20px; }
   .budget-section { padding: 20px; }
+  .report-section { padding: 20px; }
   .budget-totals { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
   .form-footer { align-items: start; flex-direction: column; gap: 10px; }

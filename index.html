@@ -128,6 +128,26 @@
       <p id="empty-state">Пока нет трат</p>
       <ul id="expense-list" aria-label="Траты"></ul>
     </section>
+    <section class="report-section" aria-labelledby="report-heading">
+      <h2 id="report-heading">Отчёт за месяц</h2>
+      <p id="report-month" class="report-note"></p>
+      <div class="field report-currency-field">
+        <label for="report-currency">Валюта отчёта</label>
+        <select id="report-currency" aria-describedby="report-currency-note">
+          <option value="KZT" aria-label="Тенге">₸</option>
+          <option value="USD" aria-label="Доллары США">$</option>
+        </select>
+      </div>
+      <p id="report-currency-note" class="report-note">Тенге и доллары считаются отдельно.</p>
+      <div aria-live="polite">
+        <p id="report-error" class="error" hidden>Отчёт недоступен: не удалось прочитать данные</p>
+        <div id="report-content">
+          <p class="report-note">Все записи месяца</p>
+          <p class="report-summary">Итого: <output id="report-total">0 ₸</output></p>
+          <p id="report-empty" class="report-note">В этом месяце трат нет</p>
+        </div>
+      </div>
+    </section>
     <footer>Данные сохраняются в этом браузере.</footer>
     <noscript><p class="error">Включите JavaScript, чтобы добавлять и просматривать траты.</p></noscript>
   </main>

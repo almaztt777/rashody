@@ -29,6 +29,8 @@
 
   check(byId("date").value === localDate() && byId("month-total").textContent === "0 ₸" &&
     byId("month-total-usd").textContent === "0,00 $" && !byId("empty-state").hidden, "Пустой список и сегодняшняя дата");
+  check(byId("report-currency").value === "KZT" && byId("report-total").textContent === "0 ₸" &&
+    !byId("report-empty").hidden && byId("report-error").hidden, "Пустой отчёт в тенге без ошибки чтения");
   check(!validDate("2026-02-29") && validDate("2024-02-29") && !validDate("0000-01-01"), "Проверка календарной даты");
   for (const amount of ["", "0", "-100", "12,5", "12.50", "abc", "NaN", "Infinity", "1e3", "9007199254740992"]) {
     add(amount, "KZT", localDate(), "Еда", "Не терять");
@@ -42,6 +44,7 @@
   add("2 500", "KZT", localDate(), "Транспорт");
   add("12 000", "KZT", localDate(), "Дом", "Последняя запись");
   check(byId("month-total").textContent === "19 500 ₸" && rows()[0].textContent.includes("Последняя запись"), "19 500 ₸ и новая запись за тот же день сверху");
+  check(byId("report-total").textContent === "19 500 ₸" && byId("report-empty").hidden, "Отчёт обновляется после добавления: 19 500 ₸");
   check(byId("amount").value === "" && byId("comment").value === "" && byId("category").value === "Дом" &&
     byId("date").value === localDate(), "Сброс суммы и комментария, сохранение категории и даты");
   const previousMonth = new Date();
@@ -49,6 +52,7 @@
   add("1000", "KZT", localDate(previousMonth));
   add("1000", "KZT", `${new Date().getFullYear() - 1}${localDate().slice(4)}`);
   check(byId("month-total").textContent === "19 500 ₸" && rows().length === 5, "Другой месяц и год не входят в месячный итог");
+  check(byId("report-total").textContent === "19 500 ₸", "Другой месяц и год не входят в отчёт");
   const dates = rows().map((row) => row.querySelector("time").dateTime);
   check(dates.every((date, index) => index === 0 || dates[index - 1] >= date), "Сортировка по дате");
   for (const amount of ["0.001", "12,345", "-0.01", "0,00", "1.2.3", "90071992547409.92"]) {
@@ -59,6 +63,13 @@
   add("0.10", "USD");
   check(byId("month-total-usd").textContent === "12,60 $" && byId("month-total").textContent === "19 500 ₸" &&
     byId("currency").value === "USD", "Центы точны, валюты не складываются, выбор валюты остаётся");
+  byId("report-currency").value = "USD";
+  byId("report-currency").dispatchEvent(new Event("change"));
+  check(byId("report-total").textContent === "12,60 $" && byId("budget-currency").value === "KZT" &&
+    byId("currency").value === "USD", "Валюта отчёта независима от бюджета и точно считает центы");
+  byId("report-currency").value = "KZT";
+  byId("report-currency").dispatchEvent(new Event("change"));
+  check(byId("currency").value === "USD" && byId("report-total").textContent === "19 500 ₸", "Смена валюты отчёта не меняет валюту новой траты");
   check(parseAmount("90 071 992 547 409,91", "USD") === Number.MAX_SAFE_INTEGER &&
     money(Number.MAX_SAFE_INTEGER, "USD") === "90 071 992 547 409,91 $", "Точный ввод и вывод у границы безопасного диапазона");
 
@@ -101,6 +112,7 @@
   reset();
   [0, 6, 7, 13, 14, 29, 30].forEach((days) => add("100", "KZT", daysAgo(days)));
   const monthBeforeFilter = byId("month-total").textContent;
+  const reportBeforeFilter = byId("report-total").textContent;
   for (const [days, count] of [[1, 1], [7, 2], [14, 4], [30, 6]]) {
     document.querySelector(`[data-days="${days}"]`).click();
     check(byId("period-from").value === daysAgo(days - 1) && byId("period-to").value === localDate() &&
@@ -122,6 +134,7 @@
   byId("period-to").dispatchEvent(new Event("change"));
   check(rows().length === 0 && byId("empty-state").textContent === "За этот период трат нет" &&
     byId("period-total").textContent === "0 ₸" && byId("period-total-usd").textContent === "0,00 $", "Пустой период и нулевые итоги");
+  check(byId("report-total").textContent === reportBeforeFilter, "Пустой период истории не меняет отчёт");
   byId("reset-period").click();
   check(rows().length === 7 && !byId("period-from").value && !byId("period-to").value, "Сброс периода");
   add("12,50", "USD", daysAgo(14));
@@ -142,6 +155,9 @@
   localStorage.setItem("rashody", "{");
   load();
   check(!byId("storage-error").hidden && byId("amount").disabled && localStorage.getItem("rashody") === "{", "Повреждённые данные не затираются");
+  render();
+  check(!byId("report-error").hidden && byId("report-content").hidden && byId("report-currency").disabled,
+    "При повреждённых данных отчёт скрыт и показана ошибка");
   localStorage.setItem("rashody", persistenceFixture);
   expenseForm.querySelectorAll("input, select, textarea, button").forEach((field) => { field.disabled = false; });
   byId("storage-error").hidden = true;

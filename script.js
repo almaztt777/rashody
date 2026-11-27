@@ -197,6 +197,19 @@ function renderBudget() {
   });
 }
 
+function renderReport() {
+  const month = localDate().slice(0, 7);
+  byId("report-month").textContent = new Date().toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+  byId("report-error").hidden = storageReadable;
+  byId("report-content").hidden = !storageReadable;
+  byId("report-currency").disabled = !storageReadable;
+  if (!storageReadable) return;
+  const currency = byId("report-currency").value;
+  const expenses = data.expenses.filter((expense) => expense.currency === currency && expense.date.slice(0, 7) === month);
+  byId("report-total").textContent = money(totals(expenses)[currency], currency);
+  byId("report-empty").hidden = expenses.length > 0;
+}
+
 function renderCategories(selected = byId("category").value) {
   byId("category").replaceChildren(...data.categories.map((name) => new Option(name, name)));
   byId("category").value = data.categories.includes(selected) ? selected : data.categories[0];
@@ -207,6 +220,8 @@ function render() {
   byId("month-label").textContent = new Date().toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
   renderTotals("month", data.expenses.filter((expense) => expense.date.slice(0, 7) === today.slice(0, 7)));
   renderBudget();
+
+  renderReport();
 
   const from = byId("period-from").value;
   const to = byId("period-to").value;
@@ -311,6 +326,7 @@ byId("new-category").addEventListener("keydown", (event) => {
 });
 
 byId("period-from").addEventListener("change", render);
+byId("report-currency").addEventListener("change", renderReport);
 byId("budget-currency").addEventListener("change", () => {
   byId("budget-status").textContent = "";
   renderBudget();
