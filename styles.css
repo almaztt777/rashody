@@ -91,6 +91,10 @@ footer { border-top: 1px solid #dcd9dd; padding-top: 18px; margin-top: 24px; }
 .report-category-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .report-category-name, .report-category-amount { overflow-wrap: anywhere; }
 .report-category-amount { text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+.report-comparison { margin-top: 20px; padding-top: 20px; border-top: 1px solid #dcd9dd; overflow-wrap: anywhere; }
+.report-comparison h3 { margin: 0; font-size: 16px; font-weight: 650; }
+#report-previous-total { font-weight: 650; font-variant-numeric: tabular-nums; }
+.report-difference { margin-top: 12px; color: #7c203a; font-weight: 650; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 600px) {
   main { padding: 24px 16px; }

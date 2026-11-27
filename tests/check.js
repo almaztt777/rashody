@@ -192,6 +192,65 @@
   check(reportCategories()[0][0] === "<b>Категория</b>" && !byId("report-categories").querySelector("b"),
     "Название категории в отчёте остаётся текстом");
 
+  reset();
+  check(byId("report-previous-total").textContent === "0 ₸" && byId("report-difference").textContent === "Без изменений" &&
+    !byId("report-previous-empty").hidden && !byId("report-empty").hidden, "Оба месяца пустые: нули и Без изменений");
+  add("5000"); add("2500", "KZT", localDate(), "Транспорт"); add("12000", "KZT", localDate(), "Дом");
+  check(byId("report-difference").textContent === "Больше на 19 500 ₸" && !byId("report-previous-empty").hidden,
+    "При пустом прошлом месяце разница считается от нуля");
+  add("15000", "KZT", localDate(previousMonth));
+  check(byId("report-previous-total").textContent === "15 000 ₸" && byId("report-difference").textContent === "Больше на 4 500 ₸" &&
+    byId("report-previous-empty").hidden, "Рост относительно прошлых 15 000 ₸");
+  add("4500", "KZT", localDate(previousMonth));
+  check(byId("report-difference").textContent === "Без изменений", "Равные месяцы: Без изменений");
+  add("5500", "KZT", localDate(previousMonth));
+  check(byId("report-previous-total").textContent === "25 000 ₸" && byId("report-difference").textContent === "Меньше на 5 500 ₸",
+    "Снижение относительно прошлых 25 000 ₸");
+  const previousYear = new Date(previousMonth); previousYear.setFullYear(previousYear.getFullYear() - 1);
+  const nextMonth = new Date(); nextMonth.setDate(1); nextMonth.setMonth(nextMonth.getMonth() + 1);
+  add("50000", "KZT", localDate(previousYear)); add("50000", "KZT", localDate(nextMonth));
+  byId("period-to").value = "1900-01-02"; byId("period-to").dispatchEvent(new Event("change"));
+  check(byId("report-previous-total").textContent === "25 000 ₸" && byId("report-difference").textContent === "Меньше на 5 500 ₸",
+    "Другой год, следующий месяц и фильтр не меняют сравнение");
+  byId("report-currency").value = "USD"; byId("report-currency").dispatchEvent(new Event("change"));
+  check(byId("report-previous-total").textContent === "0,00 $" && byId("report-difference").textContent === "Без изменений" &&
+    !byId("report-previous-empty").hidden && !byId("report-empty").hidden, "Пустые доллары не используют суммы тенге");
+  add("12.50", "USD"); add("0.10", "USD"); add("20", "USD", localDate(), "Транспорт");
+  add("30", "USD", localDate(previousMonth));
+  check(byId("report-total").textContent === "32,60 $" && byId("report-previous-total").textContent === "30,00 $" &&
+    byId("report-difference").textContent === "Больше на 2,60 $", "Долларовое сравнение с точными центами");
+  add("2.61", "USD", localDate(previousMonth));
+  check(byId("report-difference").textContent === "Меньше на 0,01 $", "Снижение на один цент без ошибки округления");
+  byId("report-currency").value = "KZT"; byId("report-currency").dispatchEvent(new Event("change"));
+  check(byId("report-difference").textContent === "Меньше на 5 500 ₸", "Возврат к своему сравнению в тенге");
+  reset();
+  add("15000", "KZT", localDate(previousMonth));
+  check(byId("report-total").textContent === "0 ₸" && byId("report-difference").textContent === "Меньше на 15 000 ₸" &&
+    !byId("report-empty").hidden && byId("report-previous-empty").hidden, "Пустой текущий месяц сравнивается с непустым прошлым");
+  const OriginalDate = Date;
+  let reportNow = "2026-12-31T12:00:00";
+  try {
+    globalThis.Date = class extends OriginalDate { constructor(...args) { super(...(args.length ? args : [reportNow])); } };
+    data.expenses = [
+      { amount: 19500, currency: "KZT", category: "Еда", date: "2027-01-01", comment: "" },
+      { amount: 15000, currency: "KZT", category: "Еда", date: "2026-12-31", comment: "" },
+      { amount: 999, currency: "KZT", category: "Еда", date: "2026-01-01", comment: "" },
+      { amount: 999, currency: "KZT", category: "Еда", date: "2025-12-31", comment: "" }
+    ];
+    render();
+    check(byId("report-total").textContent === "15 000 ₸" && byId("report-previous-total").textContent === "0 ₸",
+      "В декабре январские записи не входят в отчёт");
+    reportNow = "2027-01-01T12:00:00";
+    document.dispatchEvent(new Event("visibilitychange"));
+    check(byId("report-total").textContent === "19 500 ₸" && byId("report-previous-total").textContent === "15 000 ₸" &&
+      byId("report-difference").textContent === "Больше на 4 500 ₸" &&
+      byId("report-previous-month").textContent === new Date("2026-12-01T12:00:00").toLocaleDateString("ru-RU", { month: "long", year: "numeric" }),
+      "При возврате в январе сравнение обновляется на декабрь прошлого года");
+  } finally {
+    globalThis.Date = OriginalDate;
+    reset();
+  }
+
   const legacy = JSON.stringify({ categories: [...initialCategories], expenses: [{ amount: 5000, category: "Еда", date: localDate(), comment: "Старая запись" }] });
   localStorage.setItem("rashody", legacy);
   load();

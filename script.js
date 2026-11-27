@@ -198,15 +198,17 @@ function renderBudget() {
 }
 
 function renderReport() {
-  const month = localDate().slice(0, 7);
-  byId("report-month").textContent = new Date().toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+  const today = new Date();
+  const month = localDate(today).slice(0, 7);
+  byId("report-month").textContent = today.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
   byId("report-error").hidden = storageReadable;
   byId("report-content").hidden = !storageReadable;
   byId("report-currency").disabled = !storageReadable;
   if (!storageReadable) return;
   const currency = byId("report-currency").value;
   const expenses = data.expenses.filter((expense) => expense.currency === currency && expense.date.slice(0, 7) === month);
-  byId("report-total").textContent = money(totals(expenses)[currency], currency);
+  const total = totals(expenses)[currency];
+  byId("report-total").textContent = money(total, currency);
   byId("report-empty").hidden = expenses.length > 0;
   const categoryTotals = new Map();
   expenses.forEach((expense) => {
@@ -228,6 +230,18 @@ function renderReport() {
     item.append(row);
     return item;
   }));
+  const previousDate = new Date(today);
+  previousDate.setDate(1);
+  previousDate.setMonth(previousDate.getMonth() - 1);
+  const previousMonth = localDate(previousDate).slice(0, 7);
+  const previousExpenses = data.expenses.filter((expense) => expense.currency === currency && expense.date.slice(0, 7) === previousMonth);
+  const previousTotal = totals(previousExpenses)[currency];
+  const difference = total - previousTotal;
+  byId("report-previous-month").textContent = previousDate.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+  byId("report-previous-total").textContent = money(previousTotal, currency);
+  byId("report-previous-empty").hidden = previousExpenses.length > 0;
+  byId("report-difference").textContent = difference > 0 ? `Больше на ${money(difference, currency)}`
+    : difference < 0 ? `Меньше на ${money(-difference, currency)}` : "Без изменений";
 }
 
 function renderCategories(selected = byId("category").value) {
