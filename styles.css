@@ -84,6 +84,13 @@ footer { border-top: 1px solid #dcd9dd; padding-top: 18px; margin-top: 24px; }
 .report-currency-field { max-width: 180px; margin-top: 16px; }
 .report-summary { margin-top: 16px; font-size: 20px; overflow-wrap: anywhere; }
 #report-total { color: #7c203a; font-weight: 700; font-variant-numeric: tabular-nums; }
+#report-top-heading { margin: 20px 0 0; font-size: 16px; font-weight: 650; }
+#report-categories { margin: 12px 0 0; padding-left: 24px; }
+#report-categories li { padding: 8px 0; }
+#report-categories li::marker { color: #7c203a; font-weight: 650; }
+.report-category-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.report-category-name, .report-category-amount { overflow-wrap: anywhere; }
+.report-category-amount { text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 600px) {
   main { padding: 24px 16px; }

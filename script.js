@@ -208,6 +208,26 @@ function renderReport() {
   const expenses = data.expenses.filter((expense) => expense.currency === currency && expense.date.slice(0, 7) === month);
   byId("report-total").textContent = money(totals(expenses)[currency], currency);
   byId("report-empty").hidden = expenses.length > 0;
+  const categoryTotals = new Map();
+  expenses.forEach((expense) => {
+    categoryTotals.set(expense.category, (categoryTotals.get(expense.category) || 0) + expense.amount);
+  });
+  const topCategories = [...categoryTotals].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ru-RU")).slice(0, 3);
+  byId("report-top").hidden = topCategories.length === 0;
+  byId("report-categories").replaceChildren(...topCategories.map(([category, amount]) => {
+    const item = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "report-category-row";
+    const name = document.createElement("span");
+    name.className = "report-category-name";
+    name.textContent = category;
+    const value = document.createElement("span");
+    value.className = "report-category-amount";
+    value.textContent = money(amount, currency);
+    row.append(name, value);
+    item.append(row);
+    return item;
+  }));
 }
 
 function renderCategories(selected = byId("category").value) {

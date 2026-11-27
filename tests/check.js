@@ -146,6 +146,52 @@
   check(byId("period-total").textContent === "400 ₸" && byId("period-total-usd").textContent === "12,60 $", "Итоги периода считают валюты отдельно");
   byId("reset-period").click();
 
+  reset();
+  const reportCategories = () => [...byId("report-categories").children].map((item) => [
+    item.querySelector(".report-category-name").textContent,
+    item.querySelector(".report-category-amount").textContent
+  ]);
+  const checkCategories = (expected, name) => check(JSON.stringify(reportCategories()) === JSON.stringify(expected), name);
+  check(byId("report-top").hidden && reportCategories().length === 0 && !byId("report-empty").hidden,
+    "В пустом отчёте нет списка категорий");
+  add("5000");
+  checkCategories([["Еда", "5 000 ₸"]], "Одна категория без пустых строк");
+  add("2500", "KZT", localDate(), "Транспорт");
+  add("12000", "KZT", localDate(), "Дом");
+  checkCategories([["Дом", "12 000 ₸"], ["Еда", "5 000 ₸"], ["Транспорт", "2 500 ₸"]], "Категории по убыванию: Дом, Еда, Транспорт");
+  add("8000");
+  checkCategories([["Еда", "13 000 ₸"], ["Дом", "12 000 ₸"], ["Транспорт", "2 500 ₸"]], "Повторные траты складываются и меняют порядок");
+  byId("new-category").value = "Здоровье";
+  byId("save-category").click();
+  add("1000", "KZT", localDate(), "Здоровье");
+  check(byId("report-total").textContent === "28 500 ₸" && reportCategories().length === 3 &&
+    !reportCategories().some(([category]) => category === "Здоровье"), "Четвёртая категория входит в итог, но не в тройку");
+  const topBeforeFilter = JSON.stringify(reportCategories());
+  byId("period-to").value = "1900-01-02";
+  byId("period-to").dispatchEvent(new Event("change"));
+  check(JSON.stringify(reportCategories()) === topBeforeFilter, "Фильтр истории не меняет тройку категорий");
+  add("50000", "KZT", localDate(previousMonth), "Здоровье");
+  add("50000", "KZT", `${new Date().getFullYear() - 1}${localDate().slice(4)}`, "Здоровье");
+  check(JSON.stringify(reportCategories()) === topBeforeFilter, "Прошлый месяц и другой год не меняют тройку");
+  byId("report-currency").value = "USD";
+  byId("report-currency").dispatchEvent(new Event("change"));
+  check(byId("report-top").hidden && reportCategories().length === 0 && !byId("report-empty").hidden,
+    "Валюта без трат убирает прежний список категорий");
+  add("12,50", "USD"); add("0.10", "USD"); add("20", "USD", localDate(), "Транспорт");
+  checkCategories([["Транспорт", "20,00 $"], ["Еда", "12,60 $"]], "Две долларовые категории с точными центами");
+  check(byId("report-total").textContent === "32,60 $" && !byId("report-top").hidden, "Долларовая тройка согласована с итогом");
+  byId("report-currency").value = "KZT";
+  byId("report-currency").dispatchEvent(new Event("change"));
+  check(JSON.stringify(reportCategories()) === topBeforeFilter, "Возврат к тенге восстанавливает свою тройку");
+  reset();
+  byId("new-category").value = "Здоровье"; byId("save-category").click();
+  ["Транспорт", "Здоровье", "Еда", "Дом"].forEach((category) => add("5000", "KZT", localDate(), category));
+  checkCategories([["Дом", "5 000 ₸"], ["Еда", "5 000 ₸"], ["Здоровье", "5 000 ₸"]], "Равные суммы упорядочены по русскому названию");
+  byId("new-category").value = "<b>Категория</b>"; byId("save-category").click();
+  add("20000", "KZT", localDate(), "<b>Категория</b>");
+  check(reportCategories()[0][0] === "<b>Категория</b>" && !byId("report-categories").querySelector("b"),
+    "Название категории в отчёте остаётся текстом");
+
   const legacy = JSON.stringify({ categories: [...initialCategories], expenses: [{ amount: 5000, category: "Еда", date: localDate(), comment: "Старая запись" }] });
   localStorage.setItem("rashody", legacy);
   load();
